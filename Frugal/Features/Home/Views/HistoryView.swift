@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct PastView: View {
+struct HistoryView: View {
     var body: some View {
         NavigationStack {
             ZStack {
@@ -29,5 +29,5 @@ struct PastView: View {
 }
 
 #Preview {
-    PastView()
+    HistoryView()
 }

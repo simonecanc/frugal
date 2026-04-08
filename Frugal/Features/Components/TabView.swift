@@ -1,25 +1,25 @@
 import SwiftUI
 
-struct AdaptiveTabView: View {
+struct TabView: View {
     var body: some View {
-        TabView {
+        SwiftUI.TabView {
             HomeView()
                 .tabItem {
                     Image(systemName: "sun.horizon.circle.fill")
                     Text("Today")
                 }
             
-            PastView()
+            HistoryView()
                 .tabItem {
                     Image(systemName: "cloud.bolt.rain.circle.fill")
-                    Text("Past")
+                    Text("History")
                 }
         }
         .preferredColorScheme(.light)
-        .tint(.blue)
+        .tint(.black)
     }
 }
 
 #Preview {
-    AdaptiveTabView()
+    TabView()
 }
