@@ -13,9 +13,15 @@ struct LoginView: View {
                     
                     // Primary action
                     Button(action: { didLogin = true }) {
-                        Label("Get Started", systemImage: "arrow.right")
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 55)
+                        HStack(spacing: 8) {
+                            Text("Get Started")
+                                .customStyle(.button)
+
+                            Image(systemName: "arrow.right")
+                        }
+                        .customFont(.button)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 55)
                     }
                     .buttonStyle(.glassProminent)
                     .tint(.blue)
@@ -46,7 +52,7 @@ struct LoginView: View {
                     .blur(radius: 10)
                 
                 Image(systemName: "drop.fill")
-                    .font(.system(size: 50))
+                    .font(.customLogoSymbol)
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.cyan, .blue],
@@ -63,12 +69,11 @@ struct LoginView: View {
             
             VStack(spacing: 8) {
                 Text("Welcome")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+                    .customStyle(.largeTitle)
                     .foregroundStyle(.primary)
                 
                 Text("Tap to get started")
-                    .font(.subheadline)
+                    .customStyle(.caption)
                     .foregroundStyle(.secondary)
             }
         }

@@ -62,7 +62,7 @@ struct SplashView: View {
         ZStack {
             VStack(spacing: 20) {
                 Image(systemName: "drop.fill")
-                    .font(.system(size: 80))
+                    .font(.customHeroSymbol)
                     .foregroundStyle(.linearGradient(
                         colors: [.blue, .cyan],
                         startPoint: .topLeading,
@@ -72,8 +72,7 @@ struct SplashView: View {
                     .opacity(animate ? 1.0 : 0.7)
                 
                 Text("Frugal")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+                    .customStyle(.largeTitle)
                     .foregroundStyle(.primary)
                     .opacity(animate ? 1.0 : 0)
             }

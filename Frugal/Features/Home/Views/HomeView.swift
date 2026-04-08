@@ -19,7 +19,7 @@ struct HomeView: View {
                             .overlay(
                                 Text("Content coming soon")
                                     .foregroundColor(.gray.opacity(0.5))
-                                    .font(.customCaption)
+                                    .customStyle(.caption)
                             )
                         
                         // Spazio per il bottom navigation
@@ -32,7 +32,7 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Frugal")
-                        .font(.customTitleRegular)
+                        .customStyle(.title)
                         .foregroundColor(.primary)
                 }
             }

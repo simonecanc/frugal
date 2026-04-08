@@ -1,76 +1,122 @@
 import SwiftUI
 
 extension Font {
-    // MARK: - Custom Fonts
-    
-    /// Kefir font names (PostScript names)
-    struct CustomFontNames {
-        static let regular = "Kefir-Regular"
-        static let bold = "Kefir-Bold"
-        static let light = "Kefir-Light"
-        static let medium = "Kefir-Medium"
+    // MARK: - App Typography
+
+    struct Style {
+        let size: CGFloat
+        let weight: Weight
+        let tracking: CGFloat
+
+        fileprivate var font: Font {
+            .sfPro(size: size, weight: weight)
+        }
     }
-    
+
     // MARK: - Font Factory Methods
-    
+
+    /// SF Pro is the native system font on Apple platforms.
+    static func sfPro(size: CGFloat, weight: Weight = .regular) -> Font {
+        .system(size: size, weight: weight, design: .default)
+    }
+
+    static func custom(_ style: Style) -> Font {
+        style.font
+    }
+
     static func customRegular(size: CGFloat) -> Font {
-        return .custom(CustomFontNames.regular, size: size)
+        .sfPro(size: size, weight: .regular)
     }
-    
+
     static func customBold(size: CGFloat) -> Font {
-        return .custom(CustomFontNames.bold, size: size)
+        .sfPro(size: size, weight: .bold)
     }
-    
+
     static func customLight(size: CGFloat) -> Font {
-        return .custom(CustomFontNames.light, size: size)
+        .sfPro(size: size, weight: .light)
     }
-    
+
     static func customMedium(size: CGFloat) -> Font {
-        return .custom(CustomFontNames.medium, size: size)
+        .sfPro(size: size, weight: .medium)
     }
-    
+
     // MARK: - Predefined Sizes
-    
+
     static var customTitle: Font {
-        return .customBold(size: 28)
+        .custom(.title)
     }
-    
+
     static var customTitleBold: Font {
-        return .customBold(size: 28)
+        .custom(.titleBold)
     }
-    
+
     static var customTitleRegular: Font {
-        return .customRegular(size: 22)
+        .custom(.toolbarTitle)
     }
-    
+
     static var customHeadline: Font {
-        return .customBold(size: 22)
+        .custom(.headline)
     }
-    
+
     static var customSubheadline: Font {
-        return .customRegular(size: 18)
+        .custom(.subheadline)
     }
-    
+
     static var customSubheadlineLight: Font {
-        return .customLight(size: 18)
+        .custom(.subheadlineLight)
     }
-    
+
     static var customBody: Font {
-        return .customRegular(size: 16)
+        .custom(.body)
     }
-    
+
     static var customCaption: Font {
-        return .customLight(size: 14)
+        .custom(.caption)
     }
-    
+
     static var customSmall: Font {
-        return .customLight(size: 12)
+        .custom(.small)
+    }
+
+    static var customHeroSymbol: Font {
+        .sfPro(size: 80)
+    }
+
+    static var customLogoSymbol: Font {
+        .sfPro(size: 50)
     }
 }
 
-// MARK: - Font Loading Utility
+extension Font.Style {
+    static let largeTitle = Self(size: 34, weight: .bold, tracking: -1.1)
+    static let title = Self(size: 28, weight: .semibold, tracking: -0.9)
+    static let titleBold = Self(size: 28, weight: .bold, tracking: -1.0)
+    static let toolbarTitle = Self(size: 22, weight: .medium, tracking: -0.7)
+    static let headline = Self(size: 22, weight: .semibold, tracking: -0.7)
+    static let subheadline = Self(size: 18, weight: .regular, tracking: -0.35)
+    static let subheadlineLight = Self(size: 18, weight: .light, tracking: -0.35)
+    static let body = Self(size: 16, weight: .regular, tracking: -0.24)
+    static let caption = Self(size: 14, weight: .regular, tracking: -0.18)
+    static let small = Self(size: 12, weight: .regular, tracking: -0.1)
+    static let button = Self(size: 17, weight: .semibold, tracking: -0.4)
+}
+
+extension Text {
+    func customStyle(_ style: Font.Style) -> Text {
+        font(.custom(style))
+            .tracking(style.tracking)
+    }
+}
+
+extension View {
+    func customFont(_ style: Font.Style) -> some View {
+        font(.custom(style))
+    }
+}
+
+// MARK: - Font Utility
 extension Font {
-    /// Utility per verificare se i font sono caricati correttamente
+    /// Utility per verificare i font disponibili a runtime.
     static func printAvailableFonts() {
         for family in UIFont.familyNames.sorted() {
             print("Font Family: \(family)")
@@ -79,9 +125,9 @@ extension Font {
             }
         }
     }
-    
-    /// Verifica se un font personalizzato è disponibile
+
+    /// Verifica se un font specifico è disponibile.
     static func isCustomFontAvailable(_ fontName: String) -> Bool {
-        return UIFont(name: fontName, size: 16) != nil
+        UIFont(name: fontName, size: 16) != nil
     }
 }

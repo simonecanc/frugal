@@ -20,7 +20,7 @@ struct PastView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Frugal")
-                        .font(.customTitleRegular)
+                        .customStyle(.title)
                         .foregroundColor(.primary)
                 }
             }
