@@ -1,0 +1,24 @@
+// Debug Configuration
+// Reduces simulator warnings and improves debug experience
+
+// Disable Core Animation launch metrics in simulator
+CA_ASSERT_MAIN_THREAD_TRANSACTIONS = 0
+CA_DEBUG_TRANSACTIONS = 0
+
+// Disable Metal API Validation for performance
+METAL_DEVICE_WRAPPER_TYPE = 0
+
+// Disable Main Thread Checker for performance (only in debug)
+DISABLE_MANUAL_TARGET_ORDER_BUILD_WARNING = YES
+
+// Reduce GPU Frame Capture
+MTL_ENABLE_DEBUG_INFO = NO
+
+// OS Activity Mode - disable unnecessary logs
+OS_ACTIVITY_MODE = disable
+
+// Disable Backtrace Recording
+MallocStackLogging = NO
+
+// Additional simulator optimizations
+SIMULATOR_METAL_PERFORMANCE_MODE = 1

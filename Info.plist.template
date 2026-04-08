@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Google Sign-In Configuration -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <!-- Replace with your REVERSED_CLIENT_ID from GoogleService-Info.plist -->
+                <string>YOUR_REVERSED_CLIENT_ID</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <!-- Supabase callback URL -->
+                <string>com.canc.tonescroll</string>
+            </array>
+        </dict>
+    </array>
+    
+    <!-- Google Sign-In Client ID -->
+    <key>GIDClientID</key>
+    <string>YOUR_GOOGLE_CLIENT_ID</string>
+    
+    <!-- Required for iOS 17+ -->
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+        <string>googlechrome</string>
+        <string>safari</string>
+    </array>
+    
+    <!-- Privacy - Camera Usage (if needed) -->
+    <key>NSCameraUsageDescription</key>
+    <string>This app needs camera access for profile photos</string>
+    
+    <!-- Privacy - Photo Library Usage (if needed) -->
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>This app needs photo library access for profile photos</string>
+</dict>
+</plist>
