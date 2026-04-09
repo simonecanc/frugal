@@ -10,62 +10,76 @@ struct CameraScannerModalView: View {
     @State private var scanningResetTask: Task<Void, Never>?
     @State private var previewBootstrapTask: Task<Void, Never>?
     @State private var isPreviewVisible = false
+    @State private var capturedImage: UIImage?
+    @State private var showResult = false
 
     var body: some View {
         ZStack {
-            Color.black
-                .ignoresSafeArea()
+            // Camera layer
+            if !showResult {
+                ZStack {
+                    Color.black
+                        .ignoresSafeArea()
 
-            if isPreviewVisible {
-                CameraPreviewView(session: cameraManager.session)
-                    .transition(.opacity)
-                    .ignoresSafeArea()
-            }
-
-            ZStack {
-                ScannerGuideView(isScanning: isScanning)
-
-                if isScanning {
-                    ScanningStatusBadgeView()
-                }
-            }
-            .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                HStack {
-                    Spacer()
-
-                    Button(action: closeModal) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 34, height: 34)
+                    if isPreviewVisible {
+                        CameraPreviewView(session: cameraManager.session)
+                            .transition(.opacity)
+                            .ignoresSafeArea()
                     }
-                    .buttonStyle(.glass)
-                    .buttonBorderShape(.circle)
-                    .controlSize(.small)
-                    .tint(.white)
-                }
-                .padding(.top, 12)
-                .padding(.horizontal, 16)
 
-                Spacer()
-
-                Button(action: captureAndStartScanning) {
                     ZStack {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .frame(width: 82, height: 82)
+                        ScannerGuideView(isScanning: isScanning)
 
-                        Circle()
-                            .stroke(.white, lineWidth: 6)
-                            .frame(width: 70, height: 70)
+                        if isScanning {
+                            ScanningStatusBadgeView()
+                        }
                     }
-                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
+                    .ignoresSafeArea()
+
+                    VStack(spacing: 0) {
+                        HStack {
+                            Spacer()
+
+                            Button(action: closeModal) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 34, height: 34)
+                            }
+                            .buttonStyle(.glass)
+                            .buttonBorderShape(.circle)
+                            .controlSize(.small)
+                            .tint(.white)
+                        }
+                        .padding(.top, 12)
+                        .padding(.horizontal, 16)
+
+                        Spacer()
+
+                        Button(action: captureAndStartScanning) {
+                            ZStack {
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .frame(width: 82, height: 82)
+
+                                Circle()
+                                    .stroke(.white, lineWidth: 6)
+                                    .frame(width: 70, height: 70)
+                            }
+                            .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isScanning)
+                        .padding(.bottom, 30)
+                    }
                 }
-                .buttonStyle(.plain)
-                .disabled(isScanning)
-                .padding(.bottom, 30)
+                .transition(.opacity)
+            }
+
+            // Result layer
+            if showResult, let image = capturedImage {
+                ScanResultView(capturedImage: image, onDismiss: dismissResult)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
         .background(.black)
@@ -73,8 +87,6 @@ struct CameraScannerModalView: View {
             previewBootstrapTask?.cancel()
             isPreviewVisible = false
 
-            // Warm up the camera while the modal animates in, but only create
-            // the preview layer after the motion has completed.
             cameraManager.start()
 
             previewBootstrapTask = Task {
@@ -93,6 +105,8 @@ struct CameraScannerModalView: View {
             scanningResetTask?.cancel()
             isScanning = false
             isPreviewVisible = false
+            showResult = false
+            capturedImage = nil
             cameraManager.stop()
         }
     }
@@ -106,7 +120,12 @@ struct CameraScannerModalView: View {
     private func captureAndStartScanning() {
         guard !isScanning else { return }
 
-        cameraManager.capturePhoto()
+        // Capture a real photo
+        cameraManager.capturePhoto { image in
+            guard let image else { return }
+            self.capturedImage = image
+        }
+
         withAnimation(.easeInOut(duration: 0.2)) {
             isScanning = true
         }
@@ -119,6 +138,26 @@ struct CameraScannerModalView: View {
                 withAnimation(.easeOut(duration: 0.2)) {
                     isScanning = false
                 }
+                // Navigate to result after scanning completes
+                if capturedImage != nil {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.88)) {
+                        showResult = true
+                    }
+                }
+            }
+        }
+    }
+
+    private func dismissResult() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+            showResult = false
+        }
+        // Restart camera
+        capturedImage = nil
+        cameraManager.start()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.easeOut(duration: 0.18)) {
+                isPreviewVisible = true
             }
         }
     }
@@ -289,10 +328,12 @@ private final class PreviewView: UIView {
     }
 }
 
-private final class CameraSessionManager: ObservableObject {
+private final class CameraSessionManager: NSObject, ObservableObject {
     let session = AVCaptureSession()
     private let sessionQueue = DispatchQueue(label: "com.frugal.camera.session")
+    private let photoOutput = AVCapturePhotoOutput()
     private var didConfigureSession = false
+    private var photoCaptureCompletion: ((UIImage?) -> Void)?
 
     func start() {
         let authorization = AVCaptureDevice.authorizationStatus(for: .video)
@@ -319,9 +360,14 @@ private final class CameraSessionManager: ObservableObject {
         }
     }
 
-    func capturePhoto() {
-        // Freeze live preview when user takes the shot.
-        stop()
+    func capturePhoto(completion: @escaping (UIImage?) -> Void) {
+        photoCaptureCompletion = completion
+
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            let settings = AVCapturePhotoSettings()
+            self.photoOutput.capturePhoto(with: settings, delegate: self)
+        }
 
         DispatchQueue.main.async {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -357,6 +403,38 @@ private final class CameraSessionManager: ObservableObject {
         }
 
         session.addInput(input)
+
+        // Add photo output for actual capture
+        guard session.canAddOutput(photoOutput) else { return }
+        session.addOutput(photoOutput)
+        photoOutput.maxPhotoQualityPrioritization = .balanced
+
         didConfigureSession = true
+    }
+}
+
+extension CameraSessionManager: AVCapturePhotoCaptureDelegate {
+    func photoOutput(
+        _ output: AVCapturePhotoOutput,
+        didFinishProcessingPhoto photo: AVCapturePhoto,
+        error: Error?
+    ) {
+        guard error == nil,
+              let data = photo.fileDataRepresentation(),
+              let image = UIImage(data: data) else {
+            DispatchQueue.main.async { [weak self] in
+                self?.photoCaptureCompletion?(nil)
+                self?.photoCaptureCompletion = nil
+            }
+            return
+        }
+
+        // Stop the session after capture
+        stop()
+
+        DispatchQueue.main.async { [weak self] in
+            self?.photoCaptureCompletion?(image)
+            self?.photoCaptureCompletion = nil
+        }
     }
 }
