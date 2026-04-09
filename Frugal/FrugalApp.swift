@@ -10,6 +10,8 @@ struct FrugalApp: App {
         setupEnvironment()
     }
     
+    @StateObject private var appState = AppState()
+    
     var body: some Scene {
         WindowGroup {
             ZStack {
@@ -24,6 +26,7 @@ struct FrugalApp: App {
                     }
                 }
             }
+            .environmentObject(appState)
             .animation(.spring(response: 0.6, dampingFraction: 0.8), value: showSplash)
             .preferredColorScheme(.light)
             .onAppear {

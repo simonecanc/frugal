@@ -411,30 +411,29 @@ private final class CameraSessionManager: NSObject, ObservableObject {
 
         didConfigureSession = true
     }
+
+    private func finishPhotoCapture(with image: UIImage?) {
+        if image != nil {
+            stop()
+        }
+
+        photoCaptureCompletion?(image)
+        photoCaptureCompletion = nil
+    }
 }
 
 extension CameraSessionManager: AVCapturePhotoCaptureDelegate {
-    func photoOutput(
+    nonisolated func photoOutput(
         _ output: AVCapturePhotoOutput,
         didFinishProcessingPhoto photo: AVCapturePhoto,
         error: Error?
     ) {
-        guard error == nil,
-              let data = photo.fileDataRepresentation(),
-              let image = UIImage(data: data) else {
-            DispatchQueue.main.async { [weak self] in
-                self?.photoCaptureCompletion?(nil)
-                self?.photoCaptureCompletion = nil
-            }
-            return
-        }
+        let imageData = error == nil ? photo.fileDataRepresentation() : nil
 
-        // Stop the session after capture
-        stop()
-
-        DispatchQueue.main.async { [weak self] in
-            self?.photoCaptureCompletion?(image)
-            self?.photoCaptureCompletion = nil
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let image = imageData.flatMap(UIImage.init(data:))
+            self.finishPhotoCapture(with: image)
         }
     }
 }

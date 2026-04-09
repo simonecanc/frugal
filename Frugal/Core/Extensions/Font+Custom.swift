@@ -42,63 +42,51 @@ extension Font {
 
     // MARK: - Predefined Sizes
 
-    static var customTitle: Font {
-        .custom(.title)
-    }
-
-    static var customTitleBold: Font {
-        .custom(.titleBold)
-    }
-
-    static var customTitleRegular: Font {
-        .custom(.toolbarTitle)
-    }
-
-    static var customHeadline: Font {
-        .custom(.headline)
-    }
-
-    static var customSubheadline: Font {
-        .custom(.subheadline)
-    }
-
-    static var customSubheadlineLight: Font {
-        .custom(.subheadlineLight)
-    }
-
-    static var customBody: Font {
-        .custom(.body)
-    }
-
-    static var customCaption: Font {
-        .custom(.caption)
-    }
-
-    static var customSmall: Font {
-        .custom(.small)
-    }
-
-    static var customHeroSymbol: Font {
-        .sfPro(size: 80)
-    }
-
-    static var customLogoSymbol: Font {
-        .sfPro(size: 50)
-    }
+    static var customHero: Font { .custom(.hero) }
+    static var customDisplay: Font { .custom(.display) }
+    static var customLargeTitle: Font { .custom(.largeTitle) }
+    static var customTitle1: Font { .custom(.title1) }
+    static var customTitle2: Font { .custom(.title2) }
+    static var customHeadline: Font { .custom(.headline) }
+    static var customSubheadline: Font { .custom(.subheadline) }
+    static var customBody: Font { .custom(.body) }
+    static var customCallout: Font { .custom(.callout) }
+    static var customCaption: Font { .custom(.caption) }
+    static var customFootnote: Font { .custom(.footnote) }
+    static var customLabel: Font { .custom(.label) }
+    
+    static var customTitleBold: Font { .sfPro(size: 28, weight: .bold) }
+    static var customHeroSymbol: Font { .sfPro(size: 80) }
+    static var customLogoSymbol: Font { .sfPro(size: 50) }
 }
 
 extension Font.Style {
-    static let largeTitle = Self(size: 34, weight: .bold, tracking: -1.1)
-    static let title = Self(size: 28, weight: .semibold, tracking: -0.9)
-    static let titleBold = Self(size: 28, weight: .bold, tracking: -1.0)
-    static let toolbarTitle = Self(size: 22, weight: .medium, tracking: -0.7)
-    static let headline = Self(size: 22, weight: .semibold, tracking: -0.7)
-    static let subheadline = Self(size: 18, weight: .regular, tracking: -0.35)
-    static let subheadlineLight = Self(size: 18, weight: .light, tracking: -0.35)
-    static let body = Self(size: 16, weight: .regular, tracking: -0.24)
-    static let caption = Self(size: 14, weight: .regular, tracking: -0.18)
-    static let small = Self(size: 12, weight: .regular, tracking: -0.1)
-    static let button = Self(size: 17, weight: .semibold, tracking: -0.4)
+    // Large, impactful heading styles
+    static let hero = Self(size: 48, weight: .bold, tracking: -1.2)
+    static let display = Self(size: 40, weight: .bold, tracking: -1.0)
+    static let largeTitle = Self(size: 34, weight: .bold, tracking: -0.8)
+    
+    // Standard titles
+    static let title1 = Self(size: 28, weight: .semibold, tracking: -0.6)
+    static let title2 = Self(size: 22, weight: .semibold, tracking: -0.4)
+    static let title3 = Self(size: 20, weight: .semibold, tracking: -0.3)
+    
+    // UI Elements
+    static let headline = Self(size: 17, weight: .semibold, tracking: -0.2)
+    static let subheadline = Self(size: 15, weight: .medium, tracking: -0.1)
+    
+    // Content body
+    static let body = Self(size: 17, weight: .regular, tracking: -0.2)
+    static let callout = Self(size: 16, weight: .regular, tracking: -0.1)
+    
+    // Secondary info
+    static let caption = Self(size: 13, weight: .medium, tracking: 0.0)
+    static let footnote = Self(size: 13, weight: .regular, tracking: 0.1)
+    static let small = Self(size: 12, weight: .regular, tracking: 0.1)
+    
+    // Labels & Metadata
+    static let label = Self(size: 11, weight: .bold, tracking: 0.6)
+    static let button = Self(size: 17, weight: .semibold, tracking: -0.2)
 }
 
 extension Text {
@@ -109,6 +97,10 @@ extension Text {
 }
 
 extension View {
+    func customStyle(_ style: Font.Style) -> some View {
+        font(.custom(style))
+    }
+    
     func customFont(_ style: Font.Style) -> some View {
         font(.custom(style))
     }
