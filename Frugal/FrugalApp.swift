@@ -20,7 +20,7 @@ struct FrugalApp: App {
                         .transition(.opacity.combined(with: .scale))
                 } else {
                     if didLogin {
-                        TabView()
+                        MainTabView()
                     } else {
                         LoginView()
                     }
