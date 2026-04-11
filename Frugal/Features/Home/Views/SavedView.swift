@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct SavedView: View {
-    @EnvironmentObject private var appState: AppState
     private let savedProducts: [(String, String, String, String, Int, Color)] = [
         ("Kirkland Signature Cashews", "Kirkland", "$12.99", "$0.87/100g", 86, .green),
         ("Oat Milk Original", "Oatly", "$4.49", "$0.45/100g", 91, .green),
@@ -40,7 +39,6 @@ struct SavedView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar(appState.isCameraModalMounted ? .hidden : .visible, for: .tabBar)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Frugal")

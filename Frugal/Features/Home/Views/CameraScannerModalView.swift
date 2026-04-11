@@ -5,6 +5,7 @@ import UIKit
 
 struct CameraScannerModalView: View {
     @Binding var isPresented: Bool
+    @EnvironmentObject private var appState: AppState
     @StateObject private var cameraManager = CameraSessionManager()
     @State private var isScanning = false
     @State private var scanningResetTask: Task<Void, Never>?
@@ -27,33 +28,15 @@ struct CameraScannerModalView: View {
                             .ignoresSafeArea()
                     }
 
-                    ZStack {
-                        ScannerGuideView(isScanning: isScanning)
+                    ScannerGuideView(isScanning: isScanning)
+                        .ignoresSafeArea()
 
-                        if isScanning {
-                            ScanningStatusBadgeView()
-                        }
-                    }
-                    .ignoresSafeArea()
+                    _ScannerTopChrome(
+                        isScanning: isScanning,
+                        onClose: closeModal
+                    )
 
                     VStack(spacing: 0) {
-                        HStack {
-                            Spacer()
-
-                            Button(action: closeModal) {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                    .frame(width: 34, height: 34)
-                            }
-                            .buttonStyle(.glass)
-                            .buttonBorderShape(.circle)
-                            .controlSize(.small)
-                            .tint(.white)
-                        }
-                        .padding(.top, 12)
-                        .padding(.horizontal, 16)
-
                         Spacer()
 
                         Button(action: captureAndStartScanning) {
@@ -78,7 +61,11 @@ struct CameraScannerModalView: View {
 
             // Result layer
             if showResult, let image = capturedImage {
-                ScanResultView(capturedImage: image, onDismiss: dismissResult)
+                ScanResultView(
+                    capturedImage: image,
+                    onDismiss: dismissResult,
+                    onSave: closeModalAfterSave
+                )
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
@@ -112,9 +99,11 @@ struct CameraScannerModalView: View {
     }
 
     private func closeModal() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.92)) {
-            isPresented = false
-        }
+        isPresented = false
+    }
+
+    private func closeModalAfterSave() {
+        appState.returnToHomeAfterSave()
     }
 
     private func captureAndStartScanning() {
@@ -160,6 +149,55 @@ struct CameraScannerModalView: View {
                 isPreviewVisible = true
             }
         }
+    }
+}
+
+private struct _ScannerTopChrome: View {
+    let isScanning: Bool
+    let onClose: () -> Void
+
+    var body: some View {
+        GeometryReader { proxy in
+            let topPadding = proxy.safeAreaInsets.top + 20
+            let chromeHeight: CGFloat = 34
+            let guideWidth = min(proxy.size.width * 0.88, 360)
+            let guideHeight = guideWidth * 1.12
+            let guideTop = (proxy.size.height - guideHeight) / 2
+            let headerBottom = topPadding + chromeHeight
+            let badgeCenterY = headerBottom + ((guideTop - headerBottom) / 2)
+
+            ZStack(alignment: .top) {
+                ZStack {
+                    Text("Frugal")
+                        .customStyle(.title1)
+                        .adaptiveGlassForeground()
+
+                    HStack {
+                        Spacer()
+
+                        Button(action: onClose) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 15, weight: .semibold))
+                                .adaptiveGlassForeground()
+                                .frame(width: 34, height: 34)
+                        }
+                        .buttonStyle(.glass)
+                        .buttonBorderShape(.circle)
+                        .controlSize(.small)
+                    }
+                }
+                .frame(height: chromeHeight)
+                .padding(.top, topPadding)
+                .padding(.horizontal, 16)
+
+                if isScanning {
+                    ScanningStatusBadgeView()
+                        .position(x: proxy.size.width / 2, y: badgeCenterY)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .ignoresSafeArea(edges: .top)
     }
 }
 
@@ -218,27 +256,28 @@ private struct ScannerGuideView: View {
 
 private struct ScanningStatusBadgeView: View {
     var body: some View {
-        GeometryReader { proxy in
-            let guideWidth = min(proxy.size.width * 0.88, 360)
-            let guideHeight = guideWidth * 1.12
-            let badgeY = max(24, (proxy.size.height / 2) - (guideHeight / 2) - 44)
-
-            Button(action: {}) {
-                HStack(spacing: 8) {
-                    ProgressView()
-                        .tint(.white)
-                    Text("Scanning")
-                        .customStyle(.caption)
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+        Button(action: {}) {
+            HStack(spacing: 8) {
+                ProgressView()
+                    .tint(.white)
+                Text("Scanning")
+                    .customStyle(.caption)
             }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.capsule)
-            .allowsHitTesting(false)
-            .position(x: proxy.size.width / 2, y: badgeY)
+            .adaptiveGlassForeground()
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
         }
+        .buttonStyle(.glass)
+        .buttonBorderShape(.capsule)
+        .allowsHitTesting(false)
+    }
+}
+
+private extension View {
+    func adaptiveGlassForeground() -> some View {
+        self
+            .foregroundStyle(.white)
+            .blendMode(.difference)
     }
 }
 

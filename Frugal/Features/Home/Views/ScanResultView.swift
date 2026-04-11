@@ -3,10 +3,13 @@ import SwiftUI
 struct ScanResultView: View {
     let capturedImage: UIImage
     let onDismiss: () -> Void
+    let onSave: () -> Void
 
     @State private var showContent = false
     @State private var showScanned = false
     @State private var showAlternatives = false
+    @State private var cutoutImage: UIImage?
+    @State private var isProcessingCutout = false
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -70,7 +73,7 @@ struct ScanResultView: View {
                     .opacity(showAlternatives ? 1 : 0)
 
                     // MARK: – Two alternative cards
-                    HStack(alignment: .top, spacing: 10) {
+                    HStack(alignment: .center, spacing: 10) {
                         _AlternativeCard(
                             tagLabel: "Cheaper",
                             tagIcon: "arrow.down.circle.fill",
@@ -84,7 +87,9 @@ struct ScanResultView: View {
                             rating: 4.1,
                             reviewCount: "1.2k",
                             badgeText: "Lowest price",
-                            badgeColor: .green
+                            badgeColor: .green,
+                            glassTint: .green.opacity(0.72),
+                            usesDarkContent: false
                         )
                         .opacity(showAlternatives ? 1 : 0)
                         .offset(x: showAlternatives ? 0 : -30)
@@ -92,7 +97,7 @@ struct ScanResultView: View {
                         _AlternativeCard(
                             tagLabel: "Frugal Choice",
                             tagIcon: "leaf.fill",
-                            tagColor: .blue,
+                            tagColor: .white.opacity(0.9),
                             productName: "Cage-Free Egg Whites",
                             brand: "Kirkland Signature",
                             price: "3.49",
@@ -102,7 +107,9 @@ struct ScanResultView: View {
                             rating: 4.8,
                             reviewCount: "3.4k",
                             badgeText: "Best long-term",
-                            badgeColor: .blue
+                            badgeColor: .white.opacity(0.9),
+                            glassTint: .black.opacity(0.82),
+                            usesDarkContent: true
                         )
                         .opacity(showAlternatives ? 1 : 0)
                         .offset(x: showAlternatives ? 0 : 30)
@@ -125,26 +132,24 @@ struct ScanResultView: View {
                 Button(action: onDismiss) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .adaptiveTopChromeForeground()
                         .frame(width: 34, height: 34)
                 }
                 .buttonStyle(.glass)
                 .buttonBorderShape(.circle)
                 .controlSize(.small)
-                .tint(.white)
 
                 Spacer()
 
                 Button(action: {}) {
                     Image(systemName: "square.and.arrow.up")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .adaptiveTopChromeForeground()
                         .frame(width: 34, height: 34)
                 }
                 .buttonStyle(.glass)
                 .buttonBorderShape(.circle)
                 .controlSize(.small)
-                .tint(.white)
             }
             .padding(.top, 56)
             .padding(.horizontal, 16)
@@ -153,10 +158,15 @@ struct ScanResultView: View {
             VStack {
                 Spacer()
 
-                Button(action: onDismiss) {
+                Button(action: saveAndDismiss) {
                     HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                        Text("Choose Frugal Option")
+                        if isProcessingCutout {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "checkmark.circle.fill")
+                        }
+                        Text("Save to Home")
                     }
                     .customFont(.button)
                     .frame(maxWidth: .infinity)
@@ -165,6 +175,7 @@ struct ScanResultView: View {
                 .buttonStyle(.glassProminent)
                 .controlSize(.large)
                 .tint(.black)
+                .disabled(isProcessingCutout)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 16)
             }
@@ -180,6 +191,55 @@ struct ScanResultView: View {
             withAnimation(.spring(response: 0.55, dampingFraction: 0.82).delay(0.4)) {
                 showAlternatives = true
             }
+            // Start background removal immediately
+            startBackgroundRemoval()
+        }
+    }
+
+    // MARK: – Background Removal & Save
+
+    private func startBackgroundRemoval() {
+        Task {
+            let result = await BackgroundRemovalService.shared.removeBackground(from: capturedImage)
+            await MainActor.run {
+                cutoutImage = result
+            }
+        }
+    }
+
+    private func saveAndDismiss() {
+        // If cutout is already ready, save immediately
+        if let cutout = cutoutImage {
+            ProductImageStore.shared.saveProduct(
+                cutoutImage: cutout,
+                productName: "Liquid Egg Whites",
+                price: "$2.47"
+            )
+            onSave()
+        } else {
+            // Cutout still processing – wait for it
+            isProcessingCutout = true
+            Task {
+                let result = await BackgroundRemovalService.shared.removeBackground(from: capturedImage)
+                await MainActor.run {
+                    if let result {
+                        ProductImageStore.shared.saveProduct(
+                            cutoutImage: result,
+                            productName: "Liquid Egg Whites",
+                            price: "$2.47"
+                        )
+                    } else {
+                        // Fallback: save original image if removal fails
+                        ProductImageStore.shared.saveProduct(
+                            cutoutImage: capturedImage,
+                            productName: "Liquid Egg Whites",
+                            price: "$2.47"
+                        )
+                    }
+                    isProcessingCutout = false
+                    onSave()
+                }
+            }
         }
     }
 }
@@ -188,52 +248,26 @@ struct ScanResultView: View {
 
 private struct _ScannedProductCard: View {
     var body: some View {
-        HStack(spacing: 14) {
-            // Product icon
-            ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color(.systemGray5))
-                    .frame(width: 52, height: 52)
-                Image(systemName: "basket.fill")
-                    .font(.system(size: 22))
-                    .foregroundStyle(.secondary)
-            }
+        VStack(alignment: .center, spacing: 8) {
+            Text("Liquid Egg Whites")
+                .customStyle(.title1)
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .center)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Your product")
-                    .customStyle(.label)
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-
-                Text("Liquid Egg Whites")
-                    .customStyle(.headline)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-
-                Text("Great Value · 907g")
-                    .customStyle(.footnote)
-                    .foregroundStyle(.tertiary)
-            }
-
-            Spacer()
-
-            // Your current price
-            VStack(alignment: .trailing, spacing: 0) {
-                Text("$2.47")
-                    .customStyle(.title2)
-                    .foregroundStyle(.primary)
-                    .monospacedDigit()
-                Text("$0.27/100g")
-                    .customStyle(.label)
-                    .foregroundStyle(.secondary)
-            }
+            Text("$2.47")
+                .customStyle(.title2)
+                .foregroundStyle(.white.opacity(0.9))
+                .monospacedDigit()
+                .frame(maxWidth: .infinity, alignment: .center)
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.07), radius: 16, x: 0, y: 4)
+        .glassEffect(
+            .regular.tint(.black.opacity(0.82)),
+            in: .rect(cornerRadius: 20)
         )
+        .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 4)
+        .environment(\.colorScheme, .dark)
     }
 }
 
@@ -253,118 +287,59 @@ private struct _AlternativeCard: View {
     let reviewCount: String
     let badgeText: String
     let badgeColor: Color
+    let glassTint: Color
+    let usesDarkContent: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Tag
-            HStack(spacing: 4) {
-                Image(systemName: tagIcon)
-                    .font(.system(size: 10, weight: .bold))
-                Text(tagLabel)
-                    .customStyle(.label)
-                    .textCase(.uppercase)
-            }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(tagColor.gradient, in: Capsule())
+        VStack(alignment: .leading, spacing: 10) {
+            _OptionGlassPill(
+                title: tagLabel,
+                icon: tagIcon,
+                usesDarkContent: usesDarkContent
+            )
 
-            // Brand
-            Text(brand)
-                .customStyle(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .padding(.top, 10)
+            _AlternativeProductMockImage(usesDarkContent: usesDarkContent)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 4)
+                .padding(.bottom, 4)
 
-            // Product name
             Text(productName)
-                .customStyle(.callout)
+                .customStyle(.headline)
                 .fontWeight(.semibold)
-                .foregroundStyle(.primary)
+                .foregroundStyle(primaryText)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 2)
 
-            // Price block
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 1) {
-                    Text("$")
-                        .customStyle(.headline)
-                    Text(price)
-                        .customStyle(.title1)
-                        .monospacedDigit()
-                }
-                .foregroundStyle(.primary)
+                Text("$\(price)")
+                    .customStyle(.title2)
+                    .monospacedDigit()
+                    .foregroundStyle(primaryText)
 
-                if let originalPrice {
+                if let originalPrice, !usesDarkContent {
                     Text("$\(originalPrice)")
-                        .customStyle(.callout)
-                        .foregroundStyle(.tertiary)
-                        .strikethrough(color: .gray)
+                        .customStyle(.footnote)
+                        .foregroundStyle(secondaryText)
+                        .strikethrough(color: secondaryText.opacity(0.7))
                 }
             }
-            .padding(.top, 10)
-
-            // Price per unit
-            Text(pricePerUnit)
-                .customStyle(.label)
-                .foregroundStyle(.secondary)
-                .padding(.top, 1)
-
-            // Savings badge (if applicable)
-            if let savingsPercent {
-                HStack(spacing: 4) {
-                    Image(systemName: "arrow.down.right")
-                        .font(.system(size: 9, weight: .bold))
-                    Text("Save \(savingsPercent)")
-                        .customStyle(.label)
-                }
-                .foregroundStyle(.green)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.green.opacity(0.1), in: Capsule())
-                .padding(.top, 8)
-            }
-
-            Divider()
-                .padding(.top, 12)
-                .padding(.bottom, 10)
-
-            // Rating
-            HStack(spacing: 4) {
-                HStack(spacing: 2) {
-                    Image(systemName: "star.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.orange)
-                    Text(String(format: "%.1f", rating))
-                        .customStyle(.caption)
-                        .foregroundStyle(.primary)
-                        .monospacedDigit()
-                }
-
-                Text("(\(reviewCount))")
-                    .customStyle(.footnote)
-                    .foregroundStyle(.tertiary)
-            }
-
-            // Bottom badge
-            HStack(spacing: 4) {
-                Image(systemName: badgeColor == .green ? "tag.fill" : "leaf.fill")
-                    .font(.system(size: 9))
-                Text(badgeText)
-                    .customStyle(.label)
-                    .textCase(.uppercase)
-            }
-            .foregroundStyle(badgeColor)
-            .padding(.top, 6)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.06), radius: 14, x: 0, y: 4)
+        .glassEffect(
+            .regular.tint(glassTint),
+            in: .rect(cornerRadius: 20)
         )
+        .shadow(color: .black.opacity(0.08), radius: 14, x: 0, y: 4)
+        .environment(\.colorScheme, usesDarkContent ? .dark : .light)
+    }
+
+    private var primaryText: Color {
+        usesDarkContent ? .white : .black
+    }
+
+    private var secondaryText: Color {
+        usesDarkContent ? .white.opacity(0.68) : .black.opacity(0.55)
     }
 }
 
@@ -372,41 +347,205 @@ private struct _AlternativeCard: View {
 
 private struct _WhyFrugalCard: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "lightbulb.fill")
-                    .font(.system(size: 15))
-                    .foregroundStyle(.orange)
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Why Frugal recommends this")
+                .customStyle(.headline)
+                .foregroundStyle(.primary)
 
-                Text("Why Frugal recommends this")
-                    .customStyle(.subheadline)
-                    .foregroundStyle(.primary)
-            }
+            HStack(alignment: .center, spacing: 18) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Good value")
+                        .font(.system(size: 32, weight: .semibold, design: .default))
+                        .foregroundStyle(.primary)
 
-            VStack(alignment: .leading, spacing: 8) {
-                _ReasonRow(
-                    icon: "checkmark.circle.fill",
-                    color: .green,
-                    text: "Higher quality ingredients for only $1/mo more"
-                )
-                _ReasonRow(
-                    icon: "checkmark.circle.fill",
-                    color: .green,
-                    text: "4.8★ rating from 3.4k verified buyers"
-                )
-                _ReasonRow(
-                    icon: "checkmark.circle.fill",
-                    color: .green,
-                    text: "Better value per serving long-term"
-                )
+                    Text("About $1 more, but a better long-term buy.")
+                        .customStyle(.subheadline)
+                        .foregroundStyle(Color.black.opacity(0.62))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+
+                _WhyFrugalScoreGauge(score: 8.3)
             }
         }
-        .padding(16)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 6)
+    }
+}
+
+private struct _ResultCardTag: View {
+    let title: String
+    let icon: String
+    let tint: Color
+    let usesDarkContent: Bool
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+
+            Text(title)
+                .customStyle(.label)
+        }
+        .foregroundStyle(usesDarkContent ? .white.opacity(0.92) : tint)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.04), radius: 10, x: 0, y: 2)
+            Capsule()
+                .fill(usesDarkContent ? Color.white.opacity(0.12) : tint.opacity(0.12))
         )
+    }
+}
+
+private struct _OptionGlassPill: View {
+    let title: String
+    let icon: String
+    let usesDarkContent: Bool
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(foreground)
+
+            Text(title)
+                .font(.system(size: 12, weight: .medium, design: .default))
+                .tracking(-0.3)
+                .foregroundStyle(foreground)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color.white.opacity(0.1))
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                )
+        )
+    }
+
+    private var foreground: Color {
+        usesDarkContent ? .white.opacity(0.95) : .black.opacity(0.82)
+    }
+}
+
+private struct _AlternativeProductMockImage: View {
+    let usesDarkContent: Bool
+
+    var body: some View {
+        ZStack {
+            if usesDarkContent {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.16),
+                                Color.white.opacity(0.05)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: 38, height: 72)
+                    .overlay(alignment: .topLeading) {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.white.opacity(0.16))
+                            .frame(width: 18, height: 14)
+                            .offset(x: 8, y: 8)
+                    }
+                    .rotationEffect(.degrees(-8))
+                    .shadow(color: .black.opacity(0.14), radius: 8, x: 0, y: 5)
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.9),
+                                    Color.white.opacity(0.72)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(width: 34, height: 62)
+
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(Color.white.opacity(0.75))
+                        .frame(width: 22, height: 6)
+                        .offset(y: -20)
+                }
+                .rotationEffect(.degrees(10))
+                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 5)
+            }
+        }
+        .frame(height: 76)
+    }
+}
+
+private struct _WhyFrugalScoreGauge: View {
+    let score: Double
+
+    private var progress: Double {
+        score / 10
+    }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .trim(from: 0.12, to: 0.88)
+                .stroke(Color.black.opacity(0.10), style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                .rotationEffect(.degrees(90))
+
+            Circle()
+                .trim(from: 0.12, to: 0.12 + (0.76 * progress))
+                .stroke(_whyFrugalGreen, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                .rotationEffect(.degrees(90))
+
+            VStack(spacing: 2) {
+                Text(String(format: "%.1f", score))
+                    .font(.system(size: 28, weight: .bold, design: .default))
+                    .foregroundStyle(_whyFrugalGreen)
+
+                Image(systemName: "hand.thumbsup.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(_whyFrugalGreen)
+            }
+        }
+        .frame(width: 96, height: 96)
+    }
+}
+
+private let _whyFrugalGreen = Color(red: 0.54, green: 0.86, blue: 0.56)
+
+private struct _ResultStatBlock: View {
+    let value: String
+    let label: String
+    let usesDarkContent: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value)
+                .customStyle(.headline)
+                .foregroundStyle(usesDarkContent ? .white : .black)
+                .monospacedDigit()
+                .lineLimit(1)
+
+            Text(label)
+                .customStyle(.label)
+                .foregroundStyle(usesDarkContent ? .white.opacity(0.62) : .black.opacity(0.45))
+                .lineLimit(1)
+        }
+    }
+}
+
+private extension View {
+    func adaptiveTopChromeForeground() -> some View {
+        self
+            .foregroundStyle(.white)
+            .blendMode(.difference)
     }
 }
 
@@ -426,6 +565,52 @@ private struct _ReasonRow: View {
                 .customStyle(.footnote)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+#Preview {
+    ScanResultView(
+        capturedImage: .scanResultPreviewSample,
+        onDismiss: {},
+        onSave: {}
+    )
+}
+
+private extension UIImage {
+    static var scanResultPreviewSample: UIImage {
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 900, height: 1200))
+
+        return renderer.image { context in
+            let cg = context.cgContext
+            let colors = [
+                UIColor(red: 0.96, green: 0.91, blue: 0.80, alpha: 1).cgColor,
+                UIColor(red: 0.69, green: 0.55, blue: 0.40, alpha: 1).cgColor,
+                UIColor(red: 0.17, green: 0.16, blue: 0.20, alpha: 1).cgColor
+            ] as CFArray
+
+            let locations: [CGFloat] = [0.0, 0.34, 1.0]
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            let gradient = CGGradient(colorsSpace: colorSpace, colors: colors, locations: locations)
+
+            if let gradient {
+                cg.drawLinearGradient(
+                    gradient,
+                    start: CGPoint(x: 0, y: 0),
+                    end: CGPoint(x: 0, y: 1200),
+                    options: []
+                )
+            }
+
+            cg.setFillColor(UIColor.white.withAlphaComponent(0.25).cgColor)
+            cg.fill(CGRect(x: 80, y: 120, width: 740, height: 140))
+
+            cg.setFillColor(UIColor.black.withAlphaComponent(0.18).cgColor)
+            cg.fill(CGRect(x: 0, y: 260, width: 900, height: 220))
+
+            cg.setStrokeColor(UIColor.white.withAlphaComponent(0.22).cgColor)
+            cg.setLineWidth(14)
+            cg.strokeEllipse(in: CGRect(x: 250, y: 520, width: 380, height: 380))
         }
     }
 }

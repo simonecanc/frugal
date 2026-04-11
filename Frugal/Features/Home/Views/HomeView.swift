@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct HomeView: View {
-    @EnvironmentObject private var appState: AppState
+    @StateObject private var productStore = ProductImageStore.shared
+    @State private var summaryCardHeight: CGFloat = 0
 
     var body: some View {
         NavigationStack {
@@ -10,18 +11,126 @@ struct HomeView: View {
                     Color(.systemGroupedBackground)
                         .ignoresSafeArea(.all)
 
+                        ScrollView(showsIndicators: false) {
+                            VStack(spacing: 0) {
+                                Color.clear
+                                    .frame(height: max(summaryCardHeight - 44, 0))
+
+                            if !productStore.savedItems.isEmpty {
+                                _ProductCutoutsGrid(
+                                    items: productStore.savedItems,
+                                    store: productStore
+                                )
+                                .padding(.horizontal, 10)
+                                .padding(.bottom, 120)
+                            } else {
+                                Spacer(minLength: 120)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+
                     _HomeSummaryCard(
                         topInset: proxy.safeAreaInsets.top,
                         availableHeight: proxy.size.height,
                         availableWidth: proxy.size.width
                     )
                     .frame(maxWidth: .infinity)
+                    .readHeight { summaryCardHeight = $0 }
+                    .zIndex(1)
                     .ignoresSafeArea(edges: .top)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar(appState.isCameraModalMounted ? .hidden : .visible, for: .tabBar)
+        }
+    }
+}
+
+private struct _HeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private extension View {
+    func readHeight(onChange: @escaping (CGFloat) -> Void) -> some View {
+        background(
+            GeometryReader { proxy in
+                Color.clear
+                    .preference(key: _HeightPreferenceKey.self, value: proxy.size.height)
+            }
+        )
+        .onPreferenceChange(_HeightPreferenceKey.self, perform: onChange)
+    }
+}
+
+// MARK: – Product Cutouts Grid (collage-style like the reference)
+
+private struct _ProductCutoutsGrid: View {
+    let items: [SavedProductItem]
+    let store: ProductImageStore
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 6),
+        GridItem(.flexible(), spacing: 6),
+        GridItem(.flexible(), spacing: 6),
+    ]
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 8) {
+            ForEach(items) { item in
+                _ProductCutoutCell(item: item, store: store)
+            }
+        }
+    }
+}
+
+private struct _ProductCutoutCell: View {
+    let item: SavedProductItem
+    let store: ProductImageStore
+    @State private var loadedImage: UIImage?
+    @State private var appeared = false
+
+    private var displayedRotation: Double {
+        min(max(item.rotation, -6), 6)
+    }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            if let loadedImage {
+                Image(uiImage: loadedImage)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 110)
+                    .rotationEffect(.degrees(displayedRotation))
+                    .scaleEffect(item.scale)
+                    .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 5)
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 110)
+            }
+
+            Text(item.productName)
+                .font(.system(size: 11, weight: .semibold, design: .default))
+                .tracking(-0.3)
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity)
+        }
+        .padding(.bottom, 8)
+        .opacity(appeared ? 1 : 0)
+        .offset(y: appeared ? 0 : 20)
+        .onAppear {
+            loadedImage = store.loadImage(for: item)
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.1)) {
+                appeared = true
+            }
         }
     }
 }
@@ -85,15 +194,11 @@ private struct _HomeSummaryCard: View {
         .padding(.top, topContentPadding)
         .padding(.bottom, 22)
         .frame(minHeight: cardMinHeight, alignment: .topLeading)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 34, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 34, style: .continuous)
-                    .fill(Color.black.opacity(0.7))
-            }
-            .shadow(color: .black.opacity(0.2), radius: 18, x: 0, y: 8)
+        .glassEffect(
+            .regular.tint(.black.opacity(0.85)),
+            in: .rect(cornerRadius: 34)
         )
+        .shadow(color: .black.opacity(0.2), radius: 18, x: 0, y: 8)
         .environment(\.colorScheme, .dark)
     }
 
